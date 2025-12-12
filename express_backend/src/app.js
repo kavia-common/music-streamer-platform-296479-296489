@@ -1,3 +1,4 @@
+require('dotenv').config();
 const cors = require('cors');
 const express = require('express');
 const routes = require('./routes');
@@ -8,7 +9,8 @@ const swaggerSpec = require('../swagger');
 const app = express();
 
 app.use(cors({
-  origin: '*',
+  origin: ['http://localhost:3000', 'https://vscode-internal-18201-beta.beta01.cloud.kavia.ai:3000'],
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
