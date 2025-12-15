@@ -1,11 +1,15 @@
 const express = require('express');
 const healthController = require('../controllers/health');
 const authRoutes = require('./auth');
+const profileRoutes = require('./profile');
 
 const router = express.Router();
 
 // Mount auth routes
 router.use('/api/auth', authRoutes);
+
+// Mount profile routes
+router.use('/api/profile', profileRoutes);
 
 // Health endpoint
 
