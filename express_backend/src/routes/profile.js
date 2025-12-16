@@ -1,18 +1,7 @@
 const express = require('express');
-const { createClient } = require('@supabase/supabase-js');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('SUPABASE_URL and SUPABASE_KEY environment variables are required');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * @swagger
@@ -55,9 +44,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // PUBLIC_INTERFACE
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    const supabase = req.supabase;
     const userId = req.user.id;
 
-    // Fetch profile from database
+    // Fetch profile from database using user-scoped client
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
@@ -145,6 +135,7 @@ router.get('/', authenticateToken, async (req, res) => {
 // PUBLIC_INTERFACE
 router.put('/', authenticateToken, async (req, res) => {
   try {
+    const supabase = req.supabase;
     const userId = req.user.id;
     const { username, display_name } = req.body;
 
@@ -195,7 +186,7 @@ router.put('/', authenticateToken, async (req, res) => {
     if (display_name !== undefined) updates.display_name = display_name.trim();
     updates.updated_at = new Date().toISOString();
 
-    // Update profile in database
+    // Update profile in database using user-scoped client
     const { data: profile, error } = await supabase
       .from('profiles')
       .update(updates)

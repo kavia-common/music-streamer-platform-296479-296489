@@ -18,13 +18,16 @@
         "swagger-ui-express": "^5.0.1"
     },
     "devDependencies": {
+        "axios": "^1.13.2",
         "eslint": "^9.24.0",
         "globals": "^16.0.0",
         "jest": "^29.7.0",
         "nodemon": "^3.0.1"
     },
     "nodemonConfig": {
-        "watch": ["src"],
+        "watch": [
+            "src"
+        ],
         "ignore": [
             "node_modules",
             "package.json",

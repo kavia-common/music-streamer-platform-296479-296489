@@ -1,26 +1,25 @@
-const { createClient } = require('@supabase/supabase-js');
-
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('SUPABASE_URL and SUPABASE_KEY environment variables are required');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 class PlaylistsController {
   /**
    * Create a new playlist for the authenticated user
-   * @param {object} req - Express request object with authenticated user
+   * Uses the user-scoped Supabase client from req.supabase to ensure RLS policies work correctly
+   * @param {object} req - Express request object with authenticated user and Supabase client
    * @param {object} res - Express response object
    */
   // PUBLIC_INTERFACE
   async createPlaylist(req, res) {
     try {
+      // Get user-scoped Supabase client and user ID
+      const supabase = req.supabase;
       const userId = req.user.id;
       const { name } = req.body;
+
+      // Validate that we have the user-scoped client
+      if (!supabase) {
+        return res.status(500).json({ 
+          error: 'Authentication context not available',
+          details: 'User-scoped Supabase client is missing. Please ensure authentication middleware is applied.'
+        });
+      }
 
       // Validate input
       if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -35,7 +34,7 @@ class PlaylistsController {
         });
       }
 
-      // Fetch the profile to get the owner_id (which is the user_id from profiles table)
+      // Verify profile exists - using user-scoped client so RLS applies
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('user_id')
@@ -43,18 +42,20 @@ class PlaylistsController {
         .single();
 
       if (profileError || !profile) {
+        console.error('Profile lookup error:', profileError);
         return res.status(404).json({ 
           error: 'User profile not found',
-          details: 'Please ensure your profile is set up correctly'
+          details: 'Please ensure your profile is set up correctly. Profile must exist before creating playlists.'
         });
       }
 
-      // Create the playlist
+      // Create the playlist with owner_id = auth.uid() (userId)
+      // The user-scoped client ensures auth.uid() is available to RLS
       const { data: playlist, error: insertError } = await supabase
         .from('playlists')
         .insert([
           {
-            owner_id: profile.user_id,
+            owner_id: userId, // This must match auth.uid() for RLS policy
             name: name.trim(),
             description: '',
             is_public: true
@@ -65,6 +66,16 @@ class PlaylistsController {
 
       if (insertError) {
         console.error('Error creating playlist:', insertError);
+        
+        // Provide specific error messages for common RLS issues
+        if (insertError.code === '42501' || insertError.message?.includes('row-level security')) {
+          return res.status(403).json({ 
+            error: 'Permission denied',
+            details: 'Row-level security policy violation. The owner_id must match your authenticated user ID.',
+            hint: 'This usually means the authentication token is not being properly passed to the database.'
+          });
+        }
+        
         throw insertError;
       }
 
@@ -90,15 +101,26 @@ class PlaylistsController {
 
   /**
    * Get all playlists for the authenticated user
-   * @param {object} req - Express request object with authenticated user
+   * Uses the user-scoped Supabase client from req.supabase to ensure RLS policies work correctly
+   * @param {object} req - Express request object with authenticated user and Supabase client
    * @param {object} res - Express response object
    */
   // PUBLIC_INTERFACE
   async getPlaylists(req, res) {
     try {
+      // Get user-scoped Supabase client and user ID
+      const supabase = req.supabase;
       const userId = req.user.id;
 
-      // Fetch playlists owned by the user
+      // Validate that we have the user-scoped client
+      if (!supabase) {
+        return res.status(500).json({ 
+          error: 'Authentication context not available',
+          details: 'User-scoped Supabase client is missing. Please ensure authentication middleware is applied.'
+        });
+      }
+
+      // Fetch playlists owned by the user - RLS will enforce access control
       const { data: playlists, error } = await supabase
         .from('playlists')
         .select('id, name, description, is_public, created_at, updated_at')
