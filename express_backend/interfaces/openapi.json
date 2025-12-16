@@ -482,9 +482,6 @@
                               },
                               "audius_stream_url": {
                                 "type": "string"
-                              },
-                              "artist_name": {
-                                "type": "string"
                               }
                             }
                           }
@@ -673,11 +670,6 @@
                     "type": "string",
                     "example": "https://audius.co/stream/abc123",
                     "description": "Audius streaming URL for the track"
-                  },
-                  "artist_name": {
-                    "type": "string",
-                    "example": "John Doe",
-                    "description": "Artist name for the track"
                   }
                 }
               }
@@ -726,9 +718,6 @@
                               "type": "string"
                             },
                             "audius_stream_url": {
-                              "type": "string"
-                            },
-                            "artist_name": {
                               "type": "string"
                             }
                           }

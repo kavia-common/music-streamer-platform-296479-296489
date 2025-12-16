@@ -13,7 +13,7 @@ class PlaylistsController {
       // Get user-scoped Supabase client and user ID
       const supabase = req.supabase;
       const userId = req.user.id;
-      const { name } = req.body;
+      const { name, description, is_public } = req.body;
 
       // Validate that we have the user-scoped client
       if (!supabase) {
@@ -33,6 +33,20 @@ class PlaylistsController {
       if (name.length > 100) {
         return res.status(400).json({ 
           error: 'Playlist name must be 100 characters or less' 
+        });
+      }
+
+      // Validate optional description
+      if (description !== undefined && typeof description !== 'string') {
+        return res.status(400).json({ 
+          error: 'Description must be a string' 
+        });
+      }
+
+      // Validate optional is_public
+      if (is_public !== undefined && typeof is_public !== 'boolean') {
+        return res.status(400).json({ 
+          error: 'is_public must be a boolean' 
         });
       }
 
@@ -59,8 +73,8 @@ class PlaylistsController {
           {
             owner_id: userId, // This must match auth.uid() for RLS policy
             name: name.trim(),
-            description: '',
-            is_public: true
+            description: description !== undefined ? description.trim() : '',
+            is_public: is_public !== undefined ? is_public : true
           }
         ])
         .select()

@@ -9,7 +9,7 @@ const router = express.Router();
  * /api/playlists:
  *   post:
  *     summary: Create a new playlist
- *     description: Create a new playlist for the authenticated user with the specified name, empty description, and public visibility
+ *     description: Create a new playlist for the authenticated user with the specified name, optional description, and visibility setting
  *     tags:
  *       - Playlists
  *     security:
@@ -27,6 +27,14 @@ const router = express.Router();
  *                 type: string
  *                 example: My Awesome Playlist
  *                 description: Name of the playlist (max 100 characters)
+ *               description:
+ *                 type: string
+ *                 example: My favorite tracks
+ *                 description: Optional description for the playlist
+ *               is_public:
+ *                 type: boolean
+ *                 example: true
+ *                 description: Whether the playlist is public (default true)
  *     responses:
  *       201:
  *         description: Playlist created successfully
