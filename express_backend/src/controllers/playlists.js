@@ -1,3 +1,5 @@
+const { ensureTablesExist } = require('../utils/schemaInit');
+
 class PlaylistsController {
   /**
    * Create a new playlist for the authenticated user
@@ -139,6 +141,186 @@ class PlaylistsController {
       console.error('Error in getPlaylists:', error);
       return res.status(500).json({ 
         error: 'Failed to fetch playlists',
+        details: error.message
+      });
+    }
+  }
+
+  /**
+   * Add a track to a playlist
+   * Ensures tracks and playlist_items tables exist, upserts track, and adds to playlist
+   * @param {object} req - Express request object with authenticated user and Supabase client
+   * @param {object} res - Express response object
+   */
+  // PUBLIC_INTERFACE
+  async addTrackToPlaylist(req, res) {
+    try {
+      // Get user-scoped Supabase client and user ID
+      const supabase = req.supabase;
+      const userId = req.user.id;
+      const { playlistId } = req.params;
+      const { title, duration_seconds, audius_track_id, audius_stream_url } = req.body;
+
+      // Validate that we have the user-scoped client
+      if (!supabase) {
+        return res.status(500).json({ 
+          error: 'Authentication context not available',
+          details: 'User-scoped Supabase client is missing. Please ensure authentication middleware is applied.'
+        });
+      }
+
+      // Validate required fields
+      if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        return res.status(400).json({ 
+          error: 'Track title is required and must be a non-empty string' 
+        });
+      }
+
+      if (!audius_track_id || typeof audius_track_id !== 'string') {
+        return res.status(400).json({ 
+          error: 'audius_track_id is required and must be a string' 
+        });
+      }
+
+      if (!audius_stream_url || typeof audius_stream_url !== 'string') {
+        return res.status(400).json({ 
+          error: 'audius_stream_url is required and must be a string' 
+        });
+      }
+
+      if (duration_seconds !== undefined && (typeof duration_seconds !== 'number' || duration_seconds < 0)) {
+        return res.status(400).json({ 
+          error: 'duration_seconds must be a non-negative number' 
+        });
+      }
+
+      // Validate playlistId is a valid UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(playlistId)) {
+        return res.status(400).json({ 
+          error: 'Invalid playlist ID format' 
+        });
+      }
+
+      // Ensure tables exist
+      const schemaCheck = await ensureTablesExist(supabase);
+      if (!schemaCheck.success) {
+        return res.status(500).json({ 
+          error: 'Database schema error',
+          details: schemaCheck.error
+        });
+      }
+
+      // Verify playlist exists and user owns it
+      const { data: playlist, error: playlistError } = await supabase
+        .from('playlists')
+        .select('id, owner_id')
+        .eq('id', playlistId)
+        .single();
+
+      if (playlistError || !playlist) {
+        console.error('Playlist lookup error:', playlistError);
+        return res.status(404).json({ 
+          error: 'Playlist not found',
+          details: 'The specified playlist does not exist or you do not have access to it.'
+        });
+      }
+
+      // Verify ownership
+      if (playlist.owner_id !== userId) {
+        return res.status(403).json({ 
+          error: 'Permission denied',
+          details: 'You do not have permission to modify this playlist.'
+        });
+      }
+
+      // Upsert track by audius_track_id (insert or return existing)
+      const { data: existingTrack, error: trackCheckError } = await supabase
+        .from('tracks')
+        .select('id')
+        .eq('audius_track_id', audius_track_id)
+        .maybeSingle();
+
+      let trackId;
+
+      if (existingTrack) {
+        // Track already exists, use its ID
+        trackId = existingTrack.id;
+      } else {
+        // Insert new track
+        const { data: newTrack, error: insertTrackError } = await supabase
+          .from('tracks')
+          .insert([{
+            title: title.trim(),
+            duration_seconds: duration_seconds || null,
+            audius_track_id: audius_track_id,
+            audius_stream_url: audius_stream_url
+          }])
+          .select()
+          .single();
+
+        if (insertTrackError) {
+          console.error('Error inserting track:', insertTrackError);
+          throw insertTrackError;
+        }
+
+        trackId = newTrack.id;
+      }
+
+      // Get current max position in playlist
+      const { data: maxPositionData, error: maxPosError } = await supabase
+        .from('playlist_items')
+        .select('position')
+        .eq('playlist_id', playlistId)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const nextPosition = maxPositionData ? maxPositionData.position + 1 : 1;
+
+      // Insert into playlist_items (with conflict handling for duplicates)
+      const { data: playlistItem, error: insertItemError } = await supabase
+        .from('playlist_items')
+        .insert([{
+          playlist_id: playlistId,
+          track_id: trackId,
+          position: nextPosition
+        }])
+        .select(`
+          id,
+          playlist_id,
+          position,
+          added_at,
+          tracks:track_id (
+            id,
+            title,
+            duration_seconds,
+            audius_track_id,
+            audius_stream_url
+          )
+        `)
+        .single();
+
+      if (insertItemError) {
+        // Check for duplicate entry (unique constraint violation)
+        if (insertItemError.code === '23505') {
+          return res.status(409).json({ 
+            error: 'Track already in playlist',
+            details: 'This track has already been added to this playlist.'
+          });
+        }
+        console.error('Error inserting playlist item:', insertItemError);
+        throw insertItemError;
+      }
+
+      return res.status(201).json({ 
+        playlist_item: playlistItem,
+        message: 'Track added to playlist successfully'
+      });
+    } catch (error) {
+      console.error('Error in addTrackToPlaylist:', error);
+      return res.status(500).json({ 
+        error: 'Failed to add track to playlist',
         details: error.message
       });
     }
