@@ -64,7 +64,6 @@ class FavoritesController {
           track_id: track_id
         }])
         .select(`
-          id,
           user_id,
           track_id,
           created_at
@@ -121,7 +120,6 @@ class FavoritesController {
       const { data: favorites, error } = await supabase
         .from('favorites')
         .select(`
-          id,
           track_id,
           created_at,
           track:track_id (
@@ -142,8 +140,8 @@ class FavoritesController {
       }
 
       // Normalize the response structure
+      // Note: favorites table uses composite key (user_id, track_id), no id column
       const normalizedFavorites = (favorites || []).map(fav => ({
-        id: fav.id,
         track_id: fav.track_id,
         created_at: fav.created_at,
         track: fav.track

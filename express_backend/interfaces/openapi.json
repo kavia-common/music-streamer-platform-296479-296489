@@ -257,9 +257,6 @@
                     "favorite": {
                       "type": "object",
                       "properties": {
-                        "id": {
-                          "type": "integer"
-                        },
                         "user_id": {
                           "type": "string",
                           "format": "uuid"
@@ -323,9 +320,6 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "id": {
-                            "type": "integer"
-                          },
                           "track_id": {
                             "type": "string",
                             "format": "uuid"

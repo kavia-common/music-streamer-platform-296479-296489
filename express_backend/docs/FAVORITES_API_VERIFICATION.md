@@ -7,17 +7,15 @@ This document verifies that the favorites API has been fully implemented and tes
 
 ### 1. Database Schema ✅
 - **Table Created**: `favorites` table with proper schema
-- **Location**: `docs/create_favorites_table.sql`
+- **Location**: `docs/supabase_schema.sql`
 - **Schema**:
-  - `id` (SERIAL PRIMARY KEY)
-  - `user_id` (UUID, references auth.users)
-  - `track_id` (UUID, references tracks)
+  - `user_id` (UUID, references profiles.user_id)
+  - `track_id` (UUID, references tracks.id)
   - `created_at` (TIMESTAMPTZ, default NOW())
-  - **Unique Constraint**: `UNIQUE(user_id, track_id)` - prevents duplicates
+  - **Composite Primary Key**: `PRIMARY KEY (user_id, track_id)` - ensures uniqueness and prevents duplicates
 - **Indexes**:
-  - `idx_favorites_user_id` - fast user lookup
   - `idx_favorites_track_id` - track favorited check
-  - `idx_favorites_user_track` - composite index
+- **Note**: No separate `id` column; the composite key (user_id, track_id) serves as the unique identifier
 - **RLS Policies**:
   - Users can view their own favorites
   - Users can insert their own favorites
