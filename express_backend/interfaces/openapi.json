@@ -216,7 +216,7 @@
     "/api/favorites": {
       "post": {
         "summary": "Add a track to favorites",
-        "description": "Insert a track into the authenticated user's favorites table with user_id from auth session and created_at timestamp. If the track does not exist, it will be auto-created using only allowed fields. Prevents duplicate entries per user_id + track_id.",
+        "description": "Insert a track into the authenticated user's favorites table with user_id from auth session and created_at timestamp. Prevents duplicate entries per user_id + track_id.",
         "tags": [
           "Favorites"
         ],
@@ -240,31 +240,6 @@
                     "format": "uuid",
                     "example": "123e4567-e89b-12d3-a456-426614174000",
                     "description": "UUID of the track to add to favorites"
-                  },
-                  "title": {
-                    "type": "string",
-                    "example": "Amazing Song",
-                    "description": "Track title (optional, used for auto-creating track if it doesn't exist)"
-                  },
-                  "artist_name": {
-                    "type": "string",
-                    "example": "Artist Name",
-                    "description": "Artist name (optional, used for auto-creating track if it doesn't exist)"
-                  },
-                  "duration_seconds": {
-                    "type": "integer",
-                    "example": 180,
-                    "description": "Track duration in seconds (optional, used for auto-creating track if it doesn't exist)"
-                  },
-                  "audius_track_id": {
-                    "type": "string",
-                    "example": "abc123",
-                    "description": "Audius track identifier (optional, used for auto-creating track if it doesn't exist)"
-                  },
-                  "audius_stream_url": {
-                    "type": "string",
-                    "example": "https://audius.co/stream/abc123",
-                    "description": "Audius streaming URL (optional, used for auto-creating track if it doesn't exist)"
                   }
                 }
               }
