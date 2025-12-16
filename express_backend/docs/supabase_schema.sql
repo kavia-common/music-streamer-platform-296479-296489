@@ -127,14 +127,13 @@ CREATE TABLE IF NOT EXISTS playlist_items (
     id BIGSERIAL PRIMARY KEY,
     playlist_id UUID NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
     track_id UUID NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-    position INT NOT NULL CHECK (position > 0),
     added_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (playlist_id, track_id)
 );
 
--- Create index for efficient ordering and lookups
-CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist_position 
-ON playlist_items(playlist_id, position);
+-- Create index for efficient ordering and lookups (by added_at)
+CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist_added_at 
+ON playlist_items(playlist_id, added_at DESC);
 
 -- 7. Favorites table
 CREATE TABLE IF NOT EXISTS favorites (

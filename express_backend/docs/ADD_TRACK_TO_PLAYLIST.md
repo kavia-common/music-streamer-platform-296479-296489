@@ -46,7 +46,6 @@ All fields are required except `duration_seconds`:
   "playlist_item": {
     "id": 1,
     "playlist_id": "550e8400-e29b-41d4-a716-446655440000",
-    "position": 5,
     "added_at": "2024-01-15T10:30:00.000Z",
     "tracks": {
       "id": "660e8400-e29b-41d4-a716-446655440001",
@@ -173,14 +172,16 @@ CREATE TABLE playlist_items (
   id BIGSERIAL PRIMARY KEY,
   playlist_id UUID NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
   track_id UUID NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-  position INT NOT NULL CHECK (position > 0),
   added_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (playlist_id, track_id)
 );
+
+CREATE INDEX idx_playlist_items_playlist_added_at 
+ON playlist_items(playlist_id, added_at DESC);
 ```
 
 ## Notes
-- The endpoint automatically calculates the next position for new tracks in the playlist
+- Tracks in a playlist are ordered by `added_at` timestamp (newest first by default)
 - If a track with the same `audius_track_id` already exists, it will be reused
 - Duplicate tracks in the same playlist are prevented by the unique constraint
 - Row-Level Security (RLS) policies ensure users can only add tracks to their own playlists

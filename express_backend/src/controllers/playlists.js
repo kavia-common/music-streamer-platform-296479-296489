@@ -267,29 +267,17 @@ class PlaylistsController {
         trackId = newTrack.id;
       }
 
-      // Get current max position in playlist
-      const { data: maxPositionData, error: maxPosError } = await supabase
-        .from('playlist_items')
-        .select('position')
-        .eq('playlist_id', playlistId)
-        .order('position', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const nextPosition = maxPositionData ? maxPositionData.position + 1 : 1;
-
       // Insert into playlist_items (with conflict handling for duplicates)
+      // No position column - items ordered by added_at timestamp
       const { data: playlistItem, error: insertItemError } = await supabase
         .from('playlist_items')
         .insert([{
           playlist_id: playlistId,
-          track_id: trackId,
-          position: nextPosition
+          track_id: trackId
         }])
         .select(`
           id,
           playlist_id,
-          position,
           added_at,
           tracks:track_id (
             id,
