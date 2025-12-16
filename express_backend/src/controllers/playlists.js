@@ -199,7 +199,7 @@ class PlaylistsController {
         });
       }
 
-      // Fetch playlist items with joined track data, ordered by added_at desc
+      // Fetch playlist items with joined track data (including artist_name), ordered by added_at desc
       const { data: items, error: itemsError } = await supabase
         .from('playlist_items')
         .select(`
@@ -210,7 +210,8 @@ class PlaylistsController {
             title,
             duration_seconds,
             audius_track_id,
-            audius_stream_url
+            audius_stream_url,
+            artist_name
           )
         `)
         .eq('playlist_id', playlistId)
@@ -358,7 +359,7 @@ class PlaylistsController {
 
   /**
    * Add a track to a playlist
-   * Ensures tracks and playlist_items tables exist, upserts track, and adds to playlist
+   * Ensures tracks and playlist_items tables exist, upserts track (including artist_name), and adds to playlist
    * @param {object} req - Express request object with authenticated user and Supabase client
    * @param {object} res - Express response object
    */
@@ -369,7 +370,7 @@ class PlaylistsController {
       const supabase = req.supabase;
       const userId = req.user.id;
       const { playlistId } = req.params;
-      const { title, duration_seconds, audius_track_id, audius_stream_url } = req.body;
+      const { title, duration_seconds, audius_track_id, audius_stream_url, artist_name } = req.body;
 
       // Validate that we have the user-scoped client
       if (!supabase) {
@@ -457,15 +458,22 @@ class PlaylistsController {
         // Track already exists, use its ID
         trackId = existingTrack.id;
       } else {
-        // Insert new track
+        // Insert new track with artist_name
+        const trackInsertData = {
+          title: title.trim(),
+          duration_seconds: duration_seconds || null,
+          audius_track_id: audius_track_id,
+          audius_stream_url: audius_stream_url
+        };
+        
+        // Add artist_name if provided
+        if (artist_name) {
+          trackInsertData.artist_name = artist_name;
+        }
+
         const { data: newTrack, error: insertTrackError } = await supabase
           .from('tracks')
-          .insert([{
-            title: title.trim(),
-            duration_seconds: duration_seconds || null,
-            audius_track_id: audius_track_id,
-            audius_stream_url: audius_stream_url
-          }])
+          .insert([trackInsertData])
           .select()
           .single();
 
@@ -494,7 +502,8 @@ class PlaylistsController {
             title,
             duration_seconds,
             audius_track_id,
-            audius_stream_url
+            audius_stream_url,
+            artist_name
           )
         `)
         .single();

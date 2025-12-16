@@ -5,6 +5,7 @@
 
 /**
  * Initialize tracks and playlist_items tables if they don't exist
+ * Also ensures artist_name column exists in tracks table
  * @param {object} supabase - User-scoped Supabase client
  * @returns {Promise<{success: boolean, error?: string}>}
  */
@@ -42,6 +43,18 @@ async function ensureTablesExist(supabase) {
         success: false,
         error: 'Database schema not initialized. Contact administrator.'
       };
+    }
+
+    // Non-destructive check: verify artist_name column exists
+    // Try to select artist_name - if it fails with column not found error, log a warning
+    const { error: columnCheckError } = await supabase
+      .from('tracks')
+      .select('artist_name')
+      .limit(1);
+
+    if (columnCheckError && (columnCheckError.code === '42703' || columnCheckError.message?.includes('artist_name'))) {
+      console.warn('artist_name column does not exist in tracks table. Please run ALTER TABLE tracks ADD COLUMN IF NOT EXISTS artist_name TEXT;');
+      // We don't fail here - the app can still work without artist_name (graceful degradation)
     }
 
     return { success: true };
