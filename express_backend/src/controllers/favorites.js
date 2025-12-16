@@ -14,7 +14,18 @@ class FavoritesController {
       // Get user-scoped Supabase client and user ID
       const supabase = req.supabase;
       const userId = req.user.id;
-      const { track_id } = req.body;
+      const { 
+        track_id, 
+        title, 
+        artist, 
+        artist_name,
+        duration, 
+        duration_seconds,
+        artwork, 
+        artwork_url,
+        audius_track_id,
+        audius_stream_url
+      } = req.body;
 
       // Validate that we have the user-scoped client
       if (!supabase) {
@@ -41,21 +52,63 @@ class FavoritesController {
         });
       }
 
-      // Verify the track exists
-      const { data: track, error: trackError } = await supabase
+      // Check if the track exists in the tracks table
+      const { data: existingTrack, error: trackCheckError } = await supabase
         .from('tracks')
         .select('id')
         .eq('id', track_id)
-        .single();
+        .maybeSingle();
 
-      if (trackError || !track) {
-        return res.status(404).json({ 
-          error: 'Track not found',
-          details: 'The specified track does not exist.'
+      // If track doesn't exist, create it first
+      if (!existingTrack) {
+        console.log(`Track ${track_id} not found, creating it...`);
+        
+        // Prepare track data - use provided fields or defaults
+        const trackData = {
+          id: track_id,
+          title: title || 'Untitled Track',
+          artist_name: artist_name || artist || null,
+          duration_seconds: duration_seconds || duration || null,
+          audius_track_id: audius_track_id || null,
+          audius_stream_url: audius_stream_url || null
+        };
+
+        // Insert the track
+        const { data: newTrack, error: trackInsertError } = await supabase
+          .from('tracks')
+          .insert([trackData])
+          .select('id')
+          .single();
+
+        if (trackInsertError) {
+          console.error('Error creating track:', trackInsertError);
+          return res.status(500).json({ 
+            error: 'Failed to create track',
+            details: trackInsertError.message
+          });
+        }
+
+        console.log(`Track ${track_id} created successfully`);
+      }
+
+      // Check if this track is already in the user's favorites
+      const { data: existingFavorite, error: favoriteCheckError } = await supabase
+        .from('favorites')
+        .select('user_id, track_id, created_at')
+        .eq('user_id', userId)
+        .eq('track_id', track_id)
+        .maybeSingle();
+
+      // If already favorited, return success (idempotent behavior)
+      if (existingFavorite) {
+        console.log(`Track ${track_id} already in favorites for user ${userId}`);
+        return res.status(200).json({ 
+          favorite: existingFavorite,
+          message: 'Track is already in favorites'
         });
       }
 
-      // Insert into favorites table
+      // Insert into favorites table with composite key (user_id, track_id)
       // The created_at will be set automatically by the database (timestamptz default now())
       const { data: favorite, error: insertError } = await supabase
         .from('favorites')
@@ -72,10 +125,20 @@ class FavoritesController {
 
       if (insertError) {
         // Check for duplicate entry (unique constraint violation on user_id + track_id)
+        // This shouldn't happen due to the check above, but handle it gracefully
         if (insertError.code === '23505') {
-          return res.status(409).json({ 
-            error: 'Track already in favorites',
-            details: 'This track has already been added to your favorites.'
+          console.log(`Concurrent insert detected for track ${track_id}, user ${userId}`);
+          // Fetch the existing favorite and return it
+          const { data: concurrentFavorite } = await supabase
+            .from('favorites')
+            .select('user_id, track_id, created_at')
+            .eq('user_id', userId)
+            .eq('track_id', track_id)
+            .single();
+          
+          return res.status(200).json({ 
+            favorite: concurrentFavorite || { user_id: userId, track_id: track_id },
+            message: 'Track is already in favorites'
           });
         }
         console.error('Error inserting favorite:', insertError);

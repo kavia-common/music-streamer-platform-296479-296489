@@ -216,7 +216,7 @@
     "/api/favorites": {
       "post": {
         "summary": "Add a track to favorites",
-        "description": "Insert a track into the authenticated user's favorites table with user_id from auth session and created_at timestamp. Prevents duplicate entries per user_id + track_id.",
+        "description": "Insert a track into the authenticated user's favorites table with user_id from auth session and created_at timestamp. If the track doesn't exist in the tracks table, it will be created first using the provided metadata. Uses idempotent behavior - returns success if track is already favorited.",
         "tags": [
           "Favorites"
         ],
@@ -240,6 +240,51 @@
                     "format": "uuid",
                     "example": "123e4567-e89b-12d3-a456-426614174000",
                     "description": "UUID of the track to add to favorites"
+                  },
+                  "title": {
+                    "type": "string",
+                    "example": "Amazing Song",
+                    "description": "Title of the track (used if track needs to be created)"
+                  },
+                  "artist": {
+                    "type": "string",
+                    "example": "Artist Name",
+                    "description": "Artist name (used if track needs to be created)"
+                  },
+                  "artist_name": {
+                    "type": "string",
+                    "example": "Artist Name",
+                    "description": "Artist name (alternative field, used if track needs to be created)"
+                  },
+                  "duration": {
+                    "type": "integer",
+                    "example": 180,
+                    "description": "Duration in seconds (used if track needs to be created)"
+                  },
+                  "duration_seconds": {
+                    "type": "integer",
+                    "example": 180,
+                    "description": "Duration in seconds (alternative field, used if track needs to be created)"
+                  },
+                  "audius_track_id": {
+                    "type": "string",
+                    "example": "abc123",
+                    "description": "Audius track identifier (used if track needs to be created)"
+                  },
+                  "audius_stream_url": {
+                    "type": "string",
+                    "example": "https://audius.co/stream/abc123",
+                    "description": "Audius streaming URL (used if track needs to be created)"
+                  },
+                  "artwork": {
+                    "type": "string",
+                    "example": "https://example.com/artwork.jpg",
+                    "description": "Artwork URL (used if track needs to be created)"
+                  },
+                  "artwork_url": {
+                    "type": "string",
+                    "example": "https://example.com/artwork.jpg",
+                    "description": "Artwork URL (alternative field, used if track needs to be created)"
                   }
                 }
               }
@@ -279,17 +324,43 @@
               }
             }
           },
+          "200": {
+            "description": "Track is already in favorites (idempotent)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "favorite": {
+                      "type": "object",
+                      "properties": {
+                        "user_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "track_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "400": {
             "description": "Invalid request - track_id is required"
           },
           "401": {
             "description": "Unauthorized - Invalid or missing token"
-          },
-          "404": {
-            "description": "Track not found"
-          },
-          "409": {
-            "description": "Track already in favorites"
           },
           "500": {
             "description": "Server error"
@@ -320,6 +391,9 @@
                       "items": {
                         "type": "object",
                         "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
                           "track_id": {
                             "type": "string",
                             "format": "uuid"
