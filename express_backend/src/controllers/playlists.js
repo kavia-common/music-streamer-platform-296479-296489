@@ -147,6 +147,216 @@ class PlaylistsController {
   }
 
   /**
+   * Get playlist details with items (tracks) for the authenticated user
+   * Fetches playlist and its items joined with track information
+   * @param {object} req - Express request object with authenticated user and Supabase client
+   * @param {object} res - Express response object
+   */
+  // PUBLIC_INTERFACE
+  async getPlaylistWithItems(req, res) {
+    try {
+      // Get user-scoped Supabase client and user ID
+      const supabase = req.supabase;
+      const userId = req.user.id;
+      const { playlistId } = req.params;
+
+      // Validate that we have the user-scoped client
+      if (!supabase) {
+        return res.status(500).json({ 
+          error: 'Authentication context not available',
+          details: 'User-scoped Supabase client is missing. Please ensure authentication middleware is applied.'
+        });
+      }
+
+      // Validate playlistId is a valid UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(playlistId)) {
+        return res.status(400).json({ 
+          error: 'Invalid playlist ID format' 
+        });
+      }
+
+      // Fetch playlist details
+      const { data: playlist, error: playlistError } = await supabase
+        .from('playlists')
+        .select('id, name, description, is_public, created_at, updated_at, owner_id')
+        .eq('id', playlistId)
+        .single();
+
+      if (playlistError || !playlist) {
+        console.error('Playlist lookup error:', playlistError);
+        return res.status(404).json({ 
+          error: 'Playlist not found',
+          details: 'The specified playlist does not exist or you do not have access to it.'
+        });
+      }
+
+      // Verify ownership for private playlists (public playlists can be viewed by anyone)
+      if (!playlist.is_public && playlist.owner_id !== userId) {
+        return res.status(403).json({ 
+          error: 'Permission denied',
+          details: 'You do not have permission to view this private playlist.'
+        });
+      }
+
+      // Fetch playlist items with joined track data, ordered by added_at desc
+      const { data: items, error: itemsError } = await supabase
+        .from('playlist_items')
+        .select(`
+          id,
+          added_at,
+          track:track_id (
+            id,
+            title,
+            duration_seconds,
+            audius_track_id,
+            audius_stream_url
+          )
+        `)
+        .eq('playlist_id', playlistId)
+        .order('added_at', { ascending: false });
+
+      if (itemsError) {
+        console.error('Error fetching playlist items:', itemsError);
+        throw itemsError;
+      }
+
+      // Normalize the response structure
+      const normalizedItems = (items || []).map(item => ({
+        id: item.id,
+        added_at: item.added_at,
+        track: item.track
+      }));
+
+      return res.status(200).json({ 
+        playlist: {
+          id: playlist.id,
+          name: playlist.name,
+          description: playlist.description,
+          is_public: playlist.is_public,
+          created_at: playlist.created_at,
+          updated_at: playlist.updated_at
+        },
+        items: normalizedItems
+      });
+    } catch (error) {
+      console.error('Error in getPlaylistWithItems:', error);
+      return res.status(500).json({ 
+        error: 'Failed to fetch playlist',
+        details: error.message
+      });
+    }
+  }
+
+  /**
+   * Update playlist details (description and is_public)
+   * @param {object} req - Express request object with authenticated user and Supabase client
+   * @param {object} res - Express response object
+   */
+  // PUBLIC_INTERFACE
+  async updatePlaylist(req, res) {
+    try {
+      // Get user-scoped Supabase client and user ID
+      const supabase = req.supabase;
+      const userId = req.user.id;
+      const { playlistId } = req.params;
+      const { description, is_public } = req.body;
+
+      // Validate that we have the user-scoped client
+      if (!supabase) {
+        return res.status(500).json({ 
+          error: 'Authentication context not available',
+          details: 'User-scoped Supabase client is missing. Please ensure authentication middleware is applied.'
+        });
+      }
+
+      // Validate playlistId is a valid UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(playlistId)) {
+        return res.status(400).json({ 
+          error: 'Invalid playlist ID format' 
+        });
+      }
+
+      // Validate at least one field is provided
+      if (description === undefined && is_public === undefined) {
+        return res.status(400).json({ 
+          error: 'At least one field (description or is_public) must be provided' 
+        });
+      }
+
+      // Validate types if provided
+      if (description !== undefined && typeof description !== 'string') {
+        return res.status(400).json({ 
+          error: 'Description must be a string' 
+        });
+      }
+
+      if (is_public !== undefined && typeof is_public !== 'boolean') {
+        return res.status(400).json({ 
+          error: 'is_public must be a boolean' 
+        });
+      }
+
+      // Verify playlist exists and user owns it
+      const { data: playlist, error: playlistError } = await supabase
+        .from('playlists')
+        .select('id, owner_id')
+        .eq('id', playlistId)
+        .single();
+
+      if (playlistError || !playlist) {
+        console.error('Playlist lookup error:', playlistError);
+        return res.status(404).json({ 
+          error: 'Playlist not found',
+          details: 'The specified playlist does not exist or you do not have access to it.'
+        });
+      }
+
+      // Verify ownership
+      if (playlist.owner_id !== userId) {
+        return res.status(403).json({ 
+          error: 'Permission denied',
+          details: 'You do not have permission to modify this playlist.'
+        });
+      }
+
+      // Build update object with only provided fields
+      const updateData = {};
+      if (description !== undefined) {
+        updateData.description = description;
+      }
+      if (is_public !== undefined) {
+        updateData.is_public = is_public;
+      }
+
+      // Update the playlist
+      const { data: updatedPlaylist, error: updateError } = await supabase
+        .from('playlists')
+        .update(updateData)
+        .eq('id', playlistId)
+        .select('id, name, description, is_public, created_at, updated_at')
+        .single();
+
+      if (updateError) {
+        console.error('Error updating playlist:', updateError);
+        throw updateError;
+      }
+
+      return res.status(200).json({ 
+        playlist: updatedPlaylist,
+        message: 'Playlist updated successfully'
+      });
+    } catch (error) {
+      console.error('Error in updatePlaylist:', error);
+      return res.status(500).json({ 
+        error: 'Failed to update playlist',
+        details: error.message
+      });
+    }
+  }
+
+  /**
    * Add a track to a playlist
    * Ensures tracks and playlist_items tables exist, upserts track, and adds to playlist
    * @param {object} req - Express request object with authenticated user and Supabase client

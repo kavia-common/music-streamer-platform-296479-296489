@@ -115,6 +115,157 @@ router.get('/', authenticateToken, playlistsController.getPlaylists.bind(playlis
 
 /**
  * @swagger
+ * /api/playlists/{playlistId}:
+ *   get:
+ *     summary: Get playlist with items
+ *     description: Retrieve a playlist with all its tracks (items), ordered by added_at descending. Public playlists can be viewed by anyone, private playlists only by owner.
+ *     tags:
+ *       - Playlists
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: playlistId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the playlist
+ *     responses:
+ *       200:
+ *         description: Playlist retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 playlist:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: uuid
+ *                     name:
+ *                       type: string
+ *                     description:
+ *                       type: string
+ *                     is_public:
+ *                       type: boolean
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       added_at:
+ *                         type: string
+ *                         format: date-time
+ *                       track:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             format: uuid
+ *                           title:
+ *                             type: string
+ *                           duration_seconds:
+ *                             type: integer
+ *                           audius_track_id:
+ *                             type: string
+ *                           audius_stream_url:
+ *                             type: string
+ *       400:
+ *         description: Invalid request - validation failed
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Permission denied - Cannot view private playlist
+ *       404:
+ *         description: Playlist not found
+ *       500:
+ *         description: Server error
+ *   patch:
+ *     summary: Update playlist details
+ *     description: Update the description and/or is_public status of a playlist. Only the owner can update their playlist.
+ *     tags:
+ *       - Playlists
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: playlistId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the playlist
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               description:
+ *                 type: string
+ *                 example: "My favorite chill tracks"
+ *                 description: Playlist description
+ *               is_public:
+ *                 type: boolean
+ *                 example: true
+ *                 description: Whether the playlist is public or private
+ *     responses:
+ *       200:
+ *         description: Playlist updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 playlist:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: uuid
+ *                     name:
+ *                       type: string
+ *                     description:
+ *                       type: string
+ *                     is_public:
+ *                       type: boolean
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Invalid request - validation failed
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Permission denied - User does not own the playlist
+ *       404:
+ *         description: Playlist not found
+ *       500:
+ *         description: Server error
+ */
+// PUBLIC_INTERFACE
+router.get('/:playlistId', authenticateToken, playlistsController.getPlaylistWithItems.bind(playlistsController));
+router.patch('/:playlistId', authenticateToken, playlistsController.updatePlaylist.bind(playlistsController));
+
+/**
+ * @swagger
  * /api/playlists/{playlistId}/items:
  *   post:
  *     summary: Add a track to a playlist

@@ -473,6 +473,9 @@
                           "type": "string",
                           "format": "uuid"
                         },
+                        "position": {
+                          "type": "integer"
+                        },
                         "added_at": {
                           "type": "string",
                           "format": "date-time"
