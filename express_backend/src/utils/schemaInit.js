@@ -4,7 +4,7 @@
  */
 
 /**
- * Initialize tracks and playlist_items tables if they don't exist
+ * Initialize tracks, playlist_items, and favorites tables if they don't exist
  * Also ensures artist_name column exists in tracks table
  * @param {object} supabase - User-scoped Supabase client
  * @returns {Promise<{success: boolean, error?: string}>}
@@ -39,6 +39,20 @@ async function ensureTablesExist(supabase) {
 
     if (playlistItemsCheckError && playlistItemsCheckError.code === '42P01') {
       console.warn('playlist_items table does not exist. Please run database migrations.');
+      return {
+        success: false,
+        error: 'Database schema not initialized. Contact administrator.'
+      };
+    }
+
+    // Check if favorites table exists
+    const { error: favoritesCheckError } = await supabase
+      .from('favorites')
+      .select('id')
+      .limit(1);
+
+    if (favoritesCheckError && favoritesCheckError.code === '42P01') {
+      console.warn('favorites table does not exist. Please run database migrations.');
       return {
         success: false,
         error: 'Database schema not initialized. Contact administrator.'

@@ -3,6 +3,7 @@ const healthController = require('../controllers/health');
 const authRoutes = require('./auth');
 const profileRoutes = require('./profile');
 const playlistsRoutes = require('./playlists');
+const favoritesRoutes = require('./favorites');
 
 const router = express.Router();
 
@@ -14,6 +15,9 @@ router.use('/api/profile', profileRoutes);
 
 // Mount playlists routes
 router.use('/api/playlists', playlistsRoutes);
+
+// Mount favorites routes
+router.use('/api/favorites', favoritesRoutes);
 
 // Health endpoint
 
