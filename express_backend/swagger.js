@@ -16,6 +16,10 @@ const options = {
       {
         name: 'Profile',
         description: 'User profile management endpoints'
+      },
+      {
+        name: 'Playlists',
+        description: 'Playlist creation and management endpoints'
       }
     ],
     components: {
