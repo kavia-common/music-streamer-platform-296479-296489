@@ -5,6 +5,7 @@ class FavoritesController {
    * Add a track to the authenticated user's favorites
    * Inserts into 'favorites' table with user_id from auth session and created_at timestamp
    * Prevents duplicate entries per user_id + track_id combination
+   * If the track does not exist, creates it with only allowed fields: id, title, artist_name, duration_seconds, audius_track_id, audius_stream_url
    * @param {object} req - Express request object with authenticated user and Supabase client
    * @param {object} res - Express response object
    */
@@ -14,15 +15,13 @@ class FavoritesController {
       // Get user-scoped Supabase client and user ID
       const supabase = req.supabase;
       const userId = req.user.id;
+      
+      // Extract ONLY allowed track fields from request body
       const { 
         track_id, 
         title, 
-        artist, 
         artist_name,
-        duration, 
         duration_seconds,
-        artwork, 
-        artwork_url,
         audius_track_id,
         audius_stream_url
       } = req.body;
@@ -59,21 +58,26 @@ class FavoritesController {
         .eq('id', track_id)
         .maybeSingle();
 
-      // If track doesn't exist, create it first
+      // If track doesn't exist, create it first using only allowed fields
       if (!existingTrack) {
-        console.log(`Track ${track_id} not found, creating it...`);
+        console.log(`Track ${track_id} not found, creating it with allowed fields only...`);
         
-        // Prepare track data - use provided fields or defaults
+        // Prepare track data - use only allowed fields from the tracks schema
+        // Allowed fields: id, title, artist_name, duration_seconds, audius_track_id, audius_stream_url, created_at (auto)
         const trackData = {
-          id: track_id,
-          title: title || 'Untitled Track',
-          artist_name: artist_name || artist || null,
-          duration_seconds: duration_seconds || duration || null,
-          audius_track_id: audius_track_id || null,
-          audius_stream_url: audius_stream_url || null
+          id: track_id
         };
 
-        // Insert the track
+        // Add optional allowed fields if provided
+        if (title) trackData.title = title;
+        if (artist_name) trackData.artist_name = artist_name;
+        if (duration_seconds !== undefined && duration_seconds !== null) {
+          trackData.duration_seconds = duration_seconds;
+        }
+        if (audius_track_id) trackData.audius_track_id = audius_track_id;
+        if (audius_stream_url) trackData.audius_stream_url = audius_stream_url;
+
+        // Insert the track with minimal data
         const { data: newTrack, error: trackInsertError } = await supabase
           .from('tracks')
           .insert([trackData])
@@ -88,7 +92,7 @@ class FavoritesController {
           });
         }
 
-        console.log(`Track ${track_id} created successfully`);
+        console.log(`Track ${track_id} created successfully with allowed fields`);
       }
 
       // Check if this track is already in the user's favorites
@@ -160,7 +164,7 @@ class FavoritesController {
 
   /**
    * Get all favorite tracks for the authenticated user
-   * Returns current user's favorite track_ids with track metadata
+   * Returns current user's favorite track_ids with track metadata (only allowed fields)
    * @param {object} req - Express request object with authenticated user and Supabase client
    * @param {object} res - Express response object
    */
@@ -180,6 +184,7 @@ class FavoritesController {
       }
 
       // Fetch favorites with joined track data, ordered by created_at desc (most recent first)
+      // Only select allowed track fields: id, title, artist_name, duration_seconds, audius_track_id, audius_stream_url
       const { data: favorites, error } = await supabase
         .from('favorites')
         .select(`
@@ -188,10 +193,10 @@ class FavoritesController {
           track:track_id (
             id,
             title,
+            artist_name,
             duration_seconds,
             audius_track_id,
-            audius_stream_url,
-            artist_name
+            audius_stream_url
           )
         `)
         .eq('user_id', userId)
